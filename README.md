@@ -1,5 +1,7 @@
 # MinIO LiteLLM Viewer
 
+**Note**: This was a quick one-off project 100% vibe coded with Claude Code.
+
 A web interface for browsing LiteLLM logs stored in MinIO. Navigate by date, view JSON files with formatting, and bookmark specific logs with URL routing.
 
 <img width="1406" height="929" alt="image" src="https://github.com/user-attachments/assets/e4d0a84d-af7a-4424-a11b-a2e8594453aa" />
