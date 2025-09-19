@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MinIO LiteLLM Viewer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>MinIO LiteLLM Log Viewer</h1>
+        </header>
+
+        <div class="content">
+            <div class="sidebar">
+                <div class="nav-header">
+                    <button id="backBtn" onclick="goBack()" style="display: none;">← Back</button>
+                    <h3 id="sidebarTitle">Date Buckets</h3>
+                </div>
+                <div id="itemList" class="item-list">
+                    <div class="loading">Loading date buckets...</div>
+                </div>
+            </div>
+
+            <div class="main-content">
+                <div class="file-header">
+                    <h3 id="currentFile">Select a file to view</h3>
+                    <div class="file-info">
+                        <span id="fileSize"></span>
+                        <span id="fileDate"></span>
+                    </div>
+                </div>
+                <div id="logContent" class="log-content">
+                    <div class="placeholder">Select a log file from the left to view its contents</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
