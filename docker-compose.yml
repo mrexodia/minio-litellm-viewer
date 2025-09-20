@@ -1,6 +1,6 @@
 services:
   minio-litellm-viewer:
-    build: .
+    image: ghcr.io/mrexodia/minio-litellm-viewer
     ports:
       - "3000:3000"
     environment:

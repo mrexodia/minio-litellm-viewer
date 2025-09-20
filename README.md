@@ -38,6 +38,14 @@ A web interface for browsing LiteLLM logs stored in MinIO. Navigate by date, vie
 
 5. Open your browser and navigate to `http://localhost:3000`
 
+## Docker
+
+```sh
+docker build -t ghcr.io/mrexodia/minio-litellm-viewer .
+docker push ghcr.io/mrexodia/minio-litellm-viewer
+docker-compose up
+```
+
 ## Configuration
 
 Create a `.env` file in the project root with the following variables:
