@@ -1,6 +1,10 @@
 const express = require("express");
 const cors = require("cors");
-const { Client } = require("minio");
+const {
+  S3Client,
+  ListObjectsV2Command,
+  GetObjectCommand,
+} = require("@aws-sdk/client-s3");
 require("dotenv").config();
 
 const app = express();
@@ -12,13 +16,16 @@ app.use(express.static("public"));
 
 // Parse MinIO URL from .env
 const bucketUrl = new URL(process.env.BUCKET);
-const minioClient = new Client({
-  endPoint: bucketUrl.hostname,
-  port:
-    parseInt(bucketUrl.port) || (bucketUrl.protocol === "https:" ? 443 : 80),
-  useSSL: bucketUrl.protocol === "https:",
-  accessKey: process.env.ACCESS_KEY,
-  secretKey: process.env.SECRET_KEY,
+const s3Client = new S3Client({
+  endpoint: `${bucketUrl.protocol}//${bucketUrl.hostname}:${
+    bucketUrl.port || (bucketUrl.protocol === "https:" ? 443 : 80)
+  }`,
+  region: "us-east-1", // MinIO requires a region
+  credentials: {
+    accessKeyId: process.env.ACCESS_KEY,
+    secretAccessKey: process.env.SECRET_KEY,
+  },
+  forcePathStyle: true, // Required for MinIO
 });
 
 const bucketName = bucketUrl.pathname.split("/")[1];
@@ -26,37 +33,20 @@ const bucketName = bucketUrl.pathname.split("/")[1];
 // API Routes
 app.get("/api/dates", async (req, res) => {
   try {
-    console.log(`Listing available dates in bucket: ${bucketName}`);
-    const dateFolders = new Set();
-    const stream = minioClient.listObjects(bucketName, "", true);
-
-    stream.on("data", (obj) => {
-      console.log(`Found object: ${obj?.name || "undefined"}`);
-      // Extract date folder names from object paths
-      if (obj && obj.name && obj.name.includes("/")) {
-        const dateFolder = obj.name.split("/")[0];
-        console.log(`Adding date folder: ${dateFolder}`);
-        dateFolders.add(dateFolder);
-      }
+    const command = new ListObjectsV2Command({
+      Bucket: bucketName,
+      Delimiter: "/", // This gives us prefixes (folders) instead of individual files
     });
 
-    stream.on("end", () => {
-      console.log(
-        `Found ${dateFolders.size} date folders:`,
-        Array.from(dateFolders)
-      );
-      const sortedFolders = Array.from(dateFolders).sort((a, b) =>
-        b.localeCompare(a)
-      );
-      res.json(sortedFolders);
-    });
+    const response = await s3Client.send(command);
 
-    stream.on("error", (err) => {
-      console.error("Error listing date folders:", err);
-      res
-        .status(500)
-        .json({ error: "Failed to list date folders", details: err.message });
-    });
+    // Extract date folder names from CommonPrefixes
+    const dateFolders = (response.CommonPrefixes || [])
+      .map((prefix) => prefix.Prefix.replace("/", ""))
+      .filter((folder) => folder); // Remove empty strings
+
+    const sortedFolders = dateFolders.sort((a, b) => b.localeCompare(a));
+    res.json(sortedFolders);
   } catch (error) {
     console.error("Error in /api/dates:", error);
     res
@@ -68,34 +58,30 @@ app.get("/api/dates", async (req, res) => {
 app.get("/api/dates/:date/files", async (req, res) => {
   try {
     const date = req.params.date;
-    const objects = [];
-    const stream = minioClient.listObjects(bucketName, date + "/", false);
 
-    stream.on("data", (obj) => {
-      // Only include JSON files
-      if (obj && obj.name && obj.name.endsWith(".json")) {
-        objects.push({
-          name: obj.name,
-          displayName: obj.name.split("/").pop(),
-          size: obj.size,
-          lastModified: obj.lastModified,
-          etag: obj.etag,
-        });
-      }
+    const command = new ListObjectsV2Command({
+      Bucket: bucketName,
+      Prefix: `${date}/`,
     });
 
-    stream.on("end", () => {
-      res.json(
-        objects.sort(
-          (a, b) => new Date(b.lastModified) - new Date(a.lastModified)
-        )
-      );
-    });
+    const response = await s3Client.send(command);
 
-    stream.on("error", (err) => {
-      console.error("Error listing files:", err);
-      res.status(500).json({ error: "Failed to list files" });
-    });
+    // Filter and format JSON files
+    const objects = (response.Contents || [])
+      .filter((obj) => obj.Key.endsWith(".json"))
+      .map((obj) => ({
+        name: obj.Key,
+        displayName: obj.Key.split("/").pop(),
+        size: obj.Size,
+        lastModified: obj.LastModified,
+        etag: obj.ETag,
+      }));
+
+    const sortedObjects = objects.sort(
+      (a, b) => new Date(b.lastModified) - new Date(a.lastModified)
+    );
+
+    res.json(sortedObjects);
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -105,24 +91,27 @@ app.get("/api/dates/:date/files", async (req, res) => {
 app.get("/api/files/:filename", async (req, res) => {
   try {
     const filename = decodeURIComponent(req.params.filename);
-    const stream = await minioClient.getObject(bucketName, filename);
 
-    let content = "";
-    stream.on("data", (chunk) => {
-      content += chunk.toString();
+    const command = new GetObjectCommand({
+      Bucket: bucketName,
+      Key: filename,
     });
 
-    stream.on("end", () => {
-      res.json({ content, filename });
-    });
+    const response = await s3Client.send(command);
+    const content = await response.Body.transformToString();
 
-    stream.on("error", (err) => {
-      console.error("Error reading file:", err);
-      res.status(500).json({ error: "Failed to read file" });
-    });
+    // Parse and return JSON directly
+    const jsonData = JSON.parse(content);
+    res.json(jsonData);
   } catch (error) {
     console.error("Error:", error);
-    res.status(500).json({ error: "File not found or internal server error" });
+    if (error instanceof SyntaxError) {
+      res.status(400).json({ error: "Invalid JSON format" });
+    } else {
+      res
+        .status(500)
+        .json({ error: "File not found or internal server error" });
+    }
   }
 });
 
