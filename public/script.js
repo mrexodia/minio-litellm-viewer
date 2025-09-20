@@ -94,7 +94,7 @@ async function loadFileByPath(fullFileName) {
         if (fileContentCache.has(encodedFileName)) {
             currentFileContent = fileContentCache.get(encodedFileName);
         } else {
-            const response = await fetch(`/api/file/${encodedFileName}`);
+            const response = await fetch(`/api/files/${encodedFileName}`);
             const data = await response.json();
             currentFileContent = data.content;
             fileContentCache.set(encodedFileName, currentFileContent);
@@ -122,7 +122,7 @@ async function loadBuckets() {
         if (bucketsCache) {
             currentBuckets = bucketsCache;
         } else {
-            const response = await fetch('/api/buckets');
+            const response = await fetch('/api/dates');
             currentBuckets = await response.json();
             bucketsCache = currentBuckets; // Cache the result
         }
@@ -172,7 +172,7 @@ async function loadFiles(bucketName, preserveSelection = false) {
         if (filesCache.has(bucketName)) {
             currentFiles = filesCache.get(bucketName);
         } else {
-            const response = await fetch(`/api/files/${encodeURIComponent(bucketName)}`);
+            const response = await fetch(`/api/dates/${encodeURIComponent(bucketName)}/files`);
             currentFiles = await response.json();
             filesCache.set(bucketName, currentFiles); // Cache the result
         }
@@ -270,7 +270,7 @@ async function loadFile(filename) {
         if (fileContentCache.has(filename)) {
             currentFileContent = fileContentCache.get(filename);
         } else {
-            const response = await fetch(`/api/file/${filename}`);
+            const response = await fetch(`/api/files/${filename}`);
             const data = await response.json();
             currentFileContent = data.content;
             fileContentCache.set(filename, currentFileContent); // Cache the result

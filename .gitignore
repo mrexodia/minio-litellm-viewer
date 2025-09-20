@@ -29,9 +29,6 @@ bower_components
 # node_modules directory
 node_modules/
 
-# npm package lock file (optional - comment out if you want to include it)
-package-lock.json
-
 # Yarn package lock file (optional - comment out if you want to include it)
 yarn.lock
 
